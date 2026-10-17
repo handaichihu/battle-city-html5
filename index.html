@@ -20,7 +20,7 @@
   #hud { display: flex; gap: 24px; margin: 6px 0 10px; font-size: 15px; }
   #hud span b { color: #f5c542; }
   #wrap { position: relative; }
-  canvas { background: #000; border: 4px solid #444; image-rendering: pixelated; display: block; }
+  canvas { background: #000; border: 4px solid #444; image-rendering: pixelated; display: block; max-width: min(768px, 96vw); height: auto; }
   #overlay {
     position: absolute; inset: 0;
     background: rgba(0,0,0,.75);
@@ -47,7 +47,7 @@
   <span>敌人 <b id="left">0</b></span>
 </div>
 <div id="wrap">
-  <canvas id="game" width="624" height="624"></canvas>
+  <canvas id="game" width="768" height="768"></canvas>
   <div id="overlay">
     <h2>坦克大战</h2>
     <p>方向键 / WASD 移动 &nbsp;·&nbsp; 空格 / J 开火<br>
@@ -62,7 +62,7 @@
 "use strict";
 // ===== 常量 =====
 const TILE = 24;                 // 半格
-const GRID = 26;                 // 26x26 半格 => 624px
+const GRID = 32;                 // 32x32 半格 => 768px
 const W = GRID * TILE, H = GRID * TILE;
 const ctx = document.getElementById("game").getContext("2d");
 
@@ -79,10 +79,10 @@ function buildMap(level){
     for (let gx = 1; gx < GRID/2; gx += 2) {
       const r = rng();
       let t = EMPTY;
-      if (r < 0.42) t = BRICK;
-      else if (r < 0.52) t = STEEL;
-      else if (r < 0.60) t = WATER;
-      else if (r < 0.68) t = TREE;
+      if (r < 0.24) t = BRICK;
+      else if (r < 0.32) t = STEEL;
+      else if (r < 0.38) t = WATER;
+      else if (r < 0.46) t = TREE;
       if (t === EMPTY) continue;
       for (let dy = 0; dy < 2; dy++)
         for (let dx = 0; dx < 2; dx++) {
@@ -97,6 +97,8 @@ function buildMap(level){
   clearArea(0, GRID-2, 2, 2);                      // 玩家出生点(底部偏左)
   clearArea(GRID-2, GRID-2, 2, 2);                 // 备用出生(底部偏右)
   clearArea(1, 0, 2, 2); clearArea(GRID/2-1, 0, 2, 2); clearArea(GRID-3, 0, 2, 2); // 敌人出生点
+  // 顶部整行留出通道,保证敌人出生后可横向巡逻
+  for (let x = 0; x < GRID; x++) if (map[2][x] !== BASE) map[2][x] = EMPTY;
   // 基地(老鹰)居中底部, 四周砖墙
   const bx = GRID/2 - 1;
   clearArea(bx, GRID-2, 2, 2);
@@ -232,6 +234,7 @@ class Player extends Tank {
   update(){
     if (!this.alive) return;
     if (this.shield > 0) this.shield--;
+    if (this.cooldown > 0) this.cooldown--;
     const k = game.keys;
     let d = -1;
     if (k.ArrowUp || k.KeyW) d = 0;
@@ -269,6 +272,7 @@ class Enemy extends Tank {
   }
   update(){
     if (!this.alive) return;
+    if (this.cooldown > 0) this.cooldown--;
     this.think--;
     if (this.think <= 0) {
       this.think = 30 + Math.random() * 90;
@@ -464,6 +468,7 @@ function startLevel(lv){
   game.level = lv;
   buildMap(lv);
   game.bullets = []; game.booms = []; game.powers = [];
+  game.enemies = [];
   game.freeze = 0;
   const total = 12 + lv * 2;
   game.totalLeft = total;
